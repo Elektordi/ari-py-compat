@@ -1,0 +1,3 @@
+channel originate local/123 application Milliwatt
+
+hangup request all 
