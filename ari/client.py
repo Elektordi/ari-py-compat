@@ -52,7 +52,12 @@ class Client:
 
                 channel_id = event.get('channel', {}).get('id')
                 if not channel_id:
-                    continue # FIXME
+                    target_uri = event.get('playback', {}).get('target_uri')
+                    if target_uri and target_uri.startswith("channel:"):
+                        channel_id = target_uri.split(":")[1]
+                if not channel_id:
+                    logging.warning("Cannot find channel id in event.")
+                    continue
                 channel = self.get_object(Channel, channel_id)
 
                 if event['type'] in self.events:

@@ -23,11 +23,18 @@ def on_dtmf(channel, event):
     else:
         channel.play(media='sound:digits/%s' % digit)
 
+def on_media_end(channel, event):
+    print("Media %s finished on channel %s"%(event['playback']['media_uri'], channel))
 
 def on_start(channel, event):
     channel.on_event('ChannelDtmfReceived', on_dtmf)
-    channel.answer()
-    channel.play(media='sound:hello-world')
+    channel.on_event('PlaybackFinished', on_media_end)
+    print(channel.get())
+    r = channel.answer()
+    print(r)
+    r = channel.play(media='sound:hello-world')
+    print(r)
+    print(channel.get())
 
 
 client.on_channel_event('StasisStart', on_start)

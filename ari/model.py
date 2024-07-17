@@ -8,11 +8,14 @@ class BaseObject:
         self.id = id
         self.events = {}
 
+    def __str__(self):
+        return "<ARI %s %s>"%(self.__class__.__name__, self.id)
+
     def on_event(self, event_type, callback):
         self.events[event_type] = callback
 
     def get(self):
-        r = requests.get(self.build_url(self.API))
+        r = requests.get(self.client.build_url("/".join([self.API, self.id])))
         r.raise_for_status()
         return r.json()
 
