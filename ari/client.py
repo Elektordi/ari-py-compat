@@ -3,7 +3,7 @@ import json
 from websockets.sync.client import connect
 import logging
 
-from .model import Channel
+from .model import Channel, Bridge, Repository, ALL_MODELS
 
 
 class Client:
@@ -11,9 +11,13 @@ class Client:
         self.url = url.rstrip("/")
         self.username = username
         self.password = password
+        self.appname = None
         self.ws = None
         self.events = {}
         self.objects = {}
+
+        self.channels = Repository(self, Channel)
+        self.bridges = Repository(self, Bridge)
 
     def build_url(self, api):
         return "%s/ari/%s?api_key=%s:%s" % (self.url, api, self.username, self.password);
@@ -44,26 +48,32 @@ class Client:
     def run(self, apps="no-name"):
         if type(apps) is list:
             apps = apps[0]
+        self.appname = apps
         self.ws = connect("%s&app=%s" % (self.build_url("events").replace("http", "ws"), apps))
         for message in self.ws:
             try:
                 event = json.loads(message)
                 logging.debug(f"Received: {event}")
 
-                channel_id = event.get('channel', {}).get('id')
-                if not channel_id:
-                    target_uri = event.get('playback', {}).get('target_uri')
-                    if target_uri and target_uri.startswith("channel:"):
-                        channel_id = target_uri.split(":")[1]
-                if not channel_id:
-                    logging.warning("Cannot find channel id in event.")
-                    continue
-                channel = self.get_object(Channel, channel_id)
+                for model in ALL_MODELS:
+                    if model.KEY not in event:
+                        continue
+                    obj_id = event[model.KEY].get("id")
+                    if not obj_id:
+                        continue
+                    obj = self.get_object(model, obj_id)
+                    obj.update(event[model.KEY])
 
-                if event['type'] in self.events:
-                    self.events[event['type']](channel, event)
-                if event['type'] in channel.events:
-                    channel.events[event['type']](channel, event)
+                    if event['type'] in obj.events:
+                        obj.events[event['type']](obj, event)
+            
+                    if model is Channel:    
+                        if event['type'] in self.events:
+                            self.events[event['type']](obj, event)
+
+                    modelname = model.KEY.capitalize()
+                    if event['type'] == "%sDestroyed" % (modelname) or event['type'] == "%sFinished" % (modelname):
+                        self.del_object(obj)
 
             except Exception:
                 logging.exception("Exception on message %s" % (message))

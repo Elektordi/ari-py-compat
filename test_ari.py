@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import ari
 import logging
+import time
 
 logging.basicConfig(level=logging.DEBUG)
 load_dotenv(override=True)
@@ -17,6 +18,7 @@ def on_dtmf(channel, event):
     digit = event['digit']
     if digit == '#':
         channel.play(media='sound:goodbye')
+        time.sleep(1)
         channel.hang_up()
     elif digit == '*':
         channel.play(media='sound:asterisk-friend')
