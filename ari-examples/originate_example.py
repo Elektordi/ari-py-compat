@@ -66,7 +66,7 @@ def on_start(incoming, event):
 
     # Originate the outgoing channel
     outgoing = client.channels.originate(
-        endpoint=OUTGOING_ENDPOINT, app="hello", appArgs="dialed")
+        endpoint=OUTGOING_ENDPOINT, app="test-ari", appArgs="dialed")
 
     # If the incoming channel ends, hangup the outgoing channel
     incoming.on_event('StasisEnd', lambda *args: safe_hangup(outgoing))
@@ -84,7 +84,7 @@ def on_start(incoming, event):
         # Create a bridge, putting both channels into it.
         bridge = client.bridges.create(type='mixing')
         outgoing.answer()
-        r=bridge.addChannel(channel=[incoming.id, outgoing.id])
+        bridge.addChannel(channel=[incoming.id, outgoing.id])
         # Clean up the bridge when done
         outgoing.on_event('StasisEnd', lambda *args: bridge.destroy())
 
