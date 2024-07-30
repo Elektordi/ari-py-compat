@@ -2,6 +2,7 @@ import requests
 import json
 from websockets.sync.client import connect
 import logging
+from threading import Thread
 
 from .model import Channel, Bridge, Repository, ALL_MODELS
 
@@ -45,6 +46,9 @@ class Client:
     def on_channel_event(self, event_type, callback):
         self.events[event_type] = callback
 
+    def _callback(self, callback, obj, event):
+        Thread(target=callback, args=[obj, event], daemon=True).start()
+
     def run(self, apps="no-name"):
         if type(apps) is list:
             apps = apps[0]
@@ -65,11 +69,11 @@ class Client:
                     obj.update(event[model.KEY])
 
                     if event['type'] in obj.events:
-                        obj.events[event['type']](obj, event)
+                        self._callback(obj.events[event['type']], obj, event)
             
                     if model is Channel:    
                         if event['type'] in self.events:
-                            self.events[event['type']](obj, event)
+                            self._callback(self.events[event['type']], obj, event)
 
                     modelname = model.KEY.capitalize()
                     if event['type'] == "%sDestroyed" % (modelname) or event['type'] == "%sFinished" % (modelname):
