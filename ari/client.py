@@ -50,14 +50,19 @@ class Client:
         self.events[event_type] = callback
 
     def _callback(self, callback, obj, event):
-        self.executor.submit(callback, obj, event)
+        def _wrapper(callback, obj, event):
+            try:
+                callback(obj, event)
+            except Exception:
+                logging.exception("Exception on callback %s, event was %s" % (callback, event))
+        self.executor.submit(_wrapper, callback, obj, event)
 
     def run(self, apps="no-name"):
         if type(apps) is list:
             apps = apps[0]
         self.appname = apps
         self.ws = connect("%s&app=%s" % (self.build_url("events").replace("http", "ws"), apps))
-        self.executor = ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="ari_callback_")
+        self.executor = ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="ari_callback")
         try:
             for message in self.ws:
                 try:
