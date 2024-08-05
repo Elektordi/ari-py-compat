@@ -30,7 +30,7 @@ class Repository:
         return obj
 
     def originate(self, **kvargs):  # Alias for Channel
-        if "arg" not in kvargs:
+        if "app" not in kvargs:
             kvargs["app"] = self.client.appname
         return self.create(**kvargs)
 

@@ -53,8 +53,10 @@ class Client:
         def _wrapper(callback, obj, event):
             try:
                 callback(obj, event)
-            except Exception:
+            except Exception as ex:
                 logging.exception("Exception on callback %s, event was %s" % (callback, event))
+                if isinstance(ex, requests.exceptions.HTTPError):
+                    logging.debug("Exception body was: %s" % (ex.response.text))
         self.executor.submit(_wrapper, callback, obj, event)
 
     def run(self, apps="no-name"):
