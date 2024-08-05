@@ -88,4 +88,5 @@ class Client:
                     logging.exception("Exception on message %s" % (message))
         finally:
             self.executor.shutdown(wait=False, cancel_futures=True)
+            self.ws.close()
 
