@@ -1,8 +1,8 @@
 from .client import Client
 
 
-def connect(url, username, password):
-    c = Client(url, username, password)
+def connect(*args, **kvargs):
+    c = Client(*args, **kvargs)
     c.connect()
     return c
 
