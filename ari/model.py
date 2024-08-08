@@ -1,4 +1,5 @@
 import requests
+import time
 
 class Repository:
     def __init__(self, client, contains):
@@ -42,6 +43,7 @@ class BaseObject:
     def __init__(self, client, id=None, json={}):
         self.client = client
         self.id = id
+        self.last_update = None
         if json:
             self.update(json)
         self.events = {}
@@ -49,11 +51,15 @@ class BaseObject:
     def __str__(self):
         return "<ARI %s %s>"%(self.__class__.__name__, self.id)
 
+    def __repr__(self):
+        return "<ARI %s %s at 0x%x>"%(self.__class__.__name__, self.id, id(self))
+
     def on_event(self, event_type, callback):
         self.events[event_type] = callback
 
     def update(self, json):
         self.json = json
+        self.last_update = time.time()
         if json and not self.id:
             self.id = json.get('id')
 

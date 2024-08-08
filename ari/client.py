@@ -9,11 +9,13 @@ from .model import Channel, Bridge, Repository, ALL_MODELS
 
 
 class Client:
-    def __init__(self, url, username, password, max_workers=None):
+    def __init__(self, url, username, password, max_workers=None, cleanup_interval=300, cleanup_age=3600):
         self.url = url.rstrip("/")
         self.username = username
         self.password = password
         self.max_workers = max_workers
+        self.cleanup_interval = cleanup_interval
+        self.cleanup_age = cleanup_age
 
         self.appname = None
         self.ws = None
@@ -21,6 +23,7 @@ class Client:
         self.objects = {}
         self.executor = None
         self.running = True
+        self.next_cleanup = time.time() + self.cleanup_interval
 
         self.channels = Repository(self, Channel)
         self.bridges = Repository(self, Bridge)
@@ -42,6 +45,18 @@ class Client:
         key = (type(object_to_delete), object_to_delete.id)
         if key in self.objects:
             del(self.objects[key])
+
+    def cleanup(self):
+        try:
+            logging.debug("Starting cleanup")
+            deadline = time.time() - self.cleanup_age
+            for key, obj in list(self.objects.items()):
+                if obj.last_update < deadline:
+                    del self.objects[key]
+                    logging.debug("Cleared %r" % (obj))
+            logging.debug("Finished cleanup")
+        except Exception:
+            logging.exception("Exception during ARI cleanup")
 
     def connect(self):
         r = requests.get(self.build_url("api-docs/resources.json"))
@@ -90,12 +105,13 @@ class Client:
                                 if event['type'] in self.events:
                                     self._callback(self.events[event['type']], obj, event)
 
-                            modelname = model.KEY.capitalize()
-                            if event['type'] == "%sDestroyed" % (modelname) or event['type'] == "%sFinished" % (modelname):
-                                self.del_object(obj)
-
                     except Exception:
                         logging.exception("Exception on message %s" % (message))
+
+                    if self.next_cleanup < time.time():
+                        self.next_cleanup = time.time() + self.cleanup_interval
+                        self.executor.submit(self.cleanup)
+
             except Exception:
                 if self.running:
                     logging.exception("Exception on ARI main loop")
