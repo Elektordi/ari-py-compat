@@ -8,6 +8,9 @@ import time
 from .model import Channel, Bridge, Repository, ALL_MODELS
 
 
+log = logging.getLogger("ari")
+
+
 class Client:
     def __init__(self, url, username, password, max_workers=None, cleanup_interval=300, cleanup_age=3600):
         self.url = url.rstrip("/")
@@ -48,15 +51,15 @@ class Client:
 
     def cleanup(self):
         try:
-            logging.debug("Starting cleanup")
+            log.debug("Starting cleanup")
             deadline = time.time() - self.cleanup_age
             for key, obj in list(self.objects.items()):
                 if obj.last_update < deadline:
                     del self.objects[key]
-                    logging.debug("Cleared %r" % (obj))
-            logging.debug("Finished cleanup")
+                    log.debug("Cleared %r" % (obj))
+            log.debug("Finished cleanup")
         except Exception:
-            logging.exception("Exception during ARI cleanup")
+            log.exception("Exception during ARI cleanup")
 
     def connect(self):
         r = requests.get(self.build_url("api-docs/resources.json"))
@@ -71,9 +74,9 @@ class Client:
             try:
                 callback(obj, event)
             except Exception as ex:
-                logging.exception("Exception on callback %s, event was %s" % (callback, event))
+                log.exception("Exception on callback %s, event was %s" % (callback, event))
                 if isinstance(ex, requests.exceptions.HTTPError):
-                    logging.debug("Exception body was: %s" % (ex.response.text))
+                    log.debug("Exception body was: %s" % (ex.response.text))
         self.executor.submit(_wrapper, callback, obj, event)
 
     def run(self, apps="no-name", reconnect=True):
@@ -87,7 +90,7 @@ class Client:
                 for message in self.ws:
                     try:
                         event = json.loads(message)
-                        logging.debug(f"Received: {event}")
+                        log.debug(f"Received: {event}")
 
                         for model in ALL_MODELS:
                             if model.KEY not in event:
@@ -106,7 +109,7 @@ class Client:
                                     self._callback(self.events[event['type']], obj, event)
 
                     except Exception:
-                        logging.exception("Exception on message %s" % (message))
+                        log.exception("Exception on message %s" % (message))
 
                     if self.next_cleanup < time.time():
                         self.next_cleanup = time.time() + self.cleanup_interval
@@ -114,7 +117,7 @@ class Client:
 
             except Exception:
                 if self.running:
-                    logging.exception("Exception on ARI main loop")
+                    log.exception("Exception on ARI main loop")
                     time.sleep(1)  # Prevents DoS on server
             finally:
                 self.executor.shutdown(wait=True, cancel_futures=True)
