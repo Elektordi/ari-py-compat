@@ -54,6 +54,9 @@ class BaseObject:
     def __repr__(self):
         return "<ARI %s %s at 0x%x>"%(self.__class__.__name__, self.id, id(self))
 
+    def __eq__(self, other):
+        return type(self) == type(other) and self.id == other.id
+
     def on_event(self, event_type, callback):
         self.events[event_type] = callback
 
