@@ -3,6 +3,7 @@ import json
 from websockets.sync.client import connect
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import time
 
 from .model import Channel, Bridge, Repository, ALL_MODELS
 
@@ -19,6 +20,7 @@ class Client:
         self.events = {}
         self.objects = {}
         self.executor = None
+        self.running = True
 
         self.channels = Repository(self, Channel)
         self.bridges = Repository(self, Bridge)
@@ -59,41 +61,50 @@ class Client:
                     logging.debug("Exception body was: %s" % (ex.response.text))
         self.executor.submit(_wrapper, callback, obj, event)
 
-    def run(self, apps="no-name"):
+    def run(self, apps="no-name", reconnect=True):
         if type(apps) is list:
             apps = apps[0]
         self.appname = apps
-        self.ws = connect("%s&app=%s" % (self.build_url("events").replace("http", "ws"), apps))
-        self.executor = ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="ari_callback")
-        try:
-            for message in self.ws:
-                try:
-                    event = json.loads(message)
-                    logging.debug(f"Received: {event}")
+        while reconnect and self.running:
+            try:
+                self.ws = connect("%s&app=%s" % (self.build_url("events").replace("http", "ws"), apps))
+                self.executor = ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="ari_callback")
+                for message in self.ws:
+                    try:
+                        event = json.loads(message)
+                        logging.debug(f"Received: {event}")
 
-                    for model in ALL_MODELS:
-                        if model.KEY not in event:
-                            continue
-                        obj_id = event[model.KEY].get("id")
-                        if not obj_id:
-                            continue
-                        obj = self.get_object(model, obj_id)
-                        obj.update(event[model.KEY])
+                        for model in ALL_MODELS:
+                            if model.KEY not in event:
+                                continue
+                            obj_id = event[model.KEY].get("id")
+                            if not obj_id:
+                                continue
+                            obj = self.get_object(model, obj_id)
+                            obj.update(event[model.KEY])
 
-                        if event['type'] in obj.events:
-                            self._callback(obj.events[event['type']], obj, event)
-                
-                        if model is Channel:
-                            if event['type'] in self.events:
-                                self._callback(self.events[event['type']], obj, event)
+                            if event['type'] in obj.events:
+                                self._callback(obj.events[event['type']], obj, event)
 
-                        modelname = model.KEY.capitalize()
-                        if event['type'] == "%sDestroyed" % (modelname) or event['type'] == "%sFinished" % (modelname):
-                            self.del_object(obj)
+                            if model is Channel:
+                                if event['type'] in self.events:
+                                    self._callback(self.events[event['type']], obj, event)
 
-                except Exception:
-                    logging.exception("Exception on message %s" % (message))
-        finally:
-            self.executor.shutdown(wait=False, cancel_futures=True)
-            self.ws.close()
+                            modelname = model.KEY.capitalize()
+                            if event['type'] == "%sDestroyed" % (modelname) or event['type'] == "%sFinished" % (modelname):
+                                self.del_object(obj)
+
+                    except Exception:
+                        logging.exception("Exception on message %s" % (message))
+            except Exception:
+                if self.running:
+                    logging.exception("Exception on ARI main loop")
+                    time.sleep(1)  # Prevents DoS on server
+            finally:
+                self.executor.shutdown(wait=True, cancel_futures=True)
+                self.ws.close()
+
+    def close(self):
+        self.running = False
+        self.ws.close()
 
