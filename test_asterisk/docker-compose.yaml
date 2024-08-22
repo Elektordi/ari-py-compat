@@ -1,0 +1,14 @@
+version: "3"
+services:
+    asterisk:
+#        image: christoofar/asterisk
+        build:
+            context: .
+        ports:
+#            - 5060:5060/udp
+#            - 4569:4569/udp
+            - 8088:8088
+#        network_mode: host
+#        volumes:
+#            - ./config:/etc/asterisk
+        container_name: asterisk
