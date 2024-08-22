@@ -4,6 +4,9 @@
 
 """
 
+import sys
+sys.path.insert(0, '%s/..' % (sys.path[0]))  # noqa
+
 #
 # Copyright (c) 2013, Digium, Inc.
 #

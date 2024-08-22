@@ -7,6 +7,9 @@ channels that enter Stasis is placed into the bridge. Whenever a channel
 enters the bridge, a tone is played to the bridge.
 """
 
+import sys
+sys.path.insert(0, '%s/..' % (sys.path[0]))  # noqa
+
 #
 # Copyright (c) 2013, Digium, Inc.
 #
